@@ -1,0 +1,37 @@
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run react-test npm test -- --coverage
+
+after_success:
+  - docker build -t tokini/multi-client ./client
+  - docker build -t tokini/multi-nginx ./nginx
+  - docker build -t tokini/multi-server ./server
+  - docker build -t tokini/multi-worker ./worker
+  # Login to docker CLI
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  # Take those images and push to docker hub  
+  - docker push tokini/multi-client
+  - docker push tokini/multi-nginx
+  - docker push tokini/multi-server
+  - docker push tokini/multi-worker
+
+deploy:
+  provider: elasticbeanstalk
+  region: us-east-2
+  app: multi-docker
+  env: MultiDocker-env
+  bucket_name: elasticbeanstalk-us-east-2-968830608160
+  bucket_path: docker-multi
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key:
+    secure: $AWS_SECRET_KEY
+
+
